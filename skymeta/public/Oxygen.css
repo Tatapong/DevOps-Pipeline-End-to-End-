@@ -1,0 +1,23 @@
+/* Light */
+@font-face {
+  font-family: "Oxygen";
+  src: url("../src/assets/fonts/Oxygen-Light.ttf") format("ttf");
+  font-weight: 300;
+  font-style: sans-serif;
+}
+
+/* Regular */
+@font-face {
+  font-family: "Oxygen";
+  src: url("../src/assets/fonts/Oxygen-Regular.ttf") format("ttf");
+  font-weight: 400;
+  font-style: sans-serif;
+}
+
+/* bold */
+@font-face {
+  font-family: "Oxygen";
+  src: url("../src/assets/fonts/Oxygen-Bold.ttf") format("ttf");
+  font-weight: 700;
+  font-style: sans-serif;
+}
