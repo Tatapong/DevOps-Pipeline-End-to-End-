@@ -33,14 +33,18 @@ sudo systemctl start docker
 # Install K3s (lightweight Kubernetes)
 # -------------------
 curl -sfL https://get.k3s.io | sh -
-sudo chown $USERNAME:$USERNAME /etc/rancher/k3s/k3s.yaml
-sudo chmod 644 /etc/rancher/k3s/k3s.yaml
-mkdir -p /home/$USERNAME/.kube
+
+# Wait for K3s to be ready
+sleep 30
+
+# Set up kubeconfig for the user
+sudo mkdir -p /home/$USERNAME/.kube
 sudo cp /etc/rancher/k3s/k3s.yaml /home/$USERNAME/.kube/config
 sudo chown $USERNAME:$USERNAME /home/$USERNAME/.kube/config
+sudo chmod 600 /home/$USERNAME/.kube/config
 
-# Allow kubectl without sudo
-sudo ln -sf /usr/local/bin/kubectl /usr/bin/kubectl
+# Set KUBECONFIG environment variable
+echo "export KUBECONFIG=/home/$USERNAME/.kube/config" | sudo tee -a /home/$USERNAME/.bashrc
 
 # -------------------
 # Install Helm
@@ -50,39 +54,44 @@ curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 # -------------------
 # Install Trivy (security scanner)
 # -------------------
-sudo apt-get install -y wget apt-transport-https gnupg
-wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee /etc/apt/sources.list.d/trivy.list
+# Add Trivy GPG key and repository
+wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
 sudo apt-get update -y
 sudo apt-get install -y trivy
 
 # -------------------
 # Install Prometheus & Grafana via Helm
 # -------------------
-# Add Helm repo
+# Set KUBECONFIG for current session
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+
+# Add Helm repositories
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 
 # Create namespace
-kubectl create namespace monitoring || true
+kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
 
 # Install Prometheus
-helm install prometheus prometheus-community/prometheus \
-  --namespace monitoring
+helm upgrade --install prometheus prometheus-community/prometheus \
+  --namespace monitoring \
+  --wait
 
 # Install Grafana
-helm install grafana grafana/grafana \
+helm upgrade --install grafana grafana/grafana \
   --namespace monitoring \
   --set adminPassword='admin' \
-  --set service.type=LoadBalancer
+  --set service.type=NodePort \
+  --wait
 
 # -------------------
 # Final message
 # -------------------
 echo "---------------------------------------------------"
 echo "K3s, Docker, Helm, Trivy, Prometheus & Grafana installed!"
-echo "Access Grafana via LoadBalancer external IP (admin/admin)."
+echo "Access Grafana via NodePort service (admin/admin)."
+echo "Run 'kubectl get svc -n monitoring' to get service details."
 echo "Kubectl config is ready for user: $USERNAME"
 echo "---------------------------------------------------"
-
